@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const path = require('path');
@@ -23,7 +24,7 @@ const db = mysql.createConnection({
   host: 'localhost', 
   user: 'root',      
   password: '',      
-  database: 'learning_platform'  // Tên database của bạn
+  database: 'learningplatform'  // Tên database của bạn
 });
 
 db.connect((err) => {
@@ -36,7 +37,7 @@ db.connect((err) => {
 
 // Routes
 
-// Đăng ký người dùng (không mã hóa mật khẩu)
+// Đăng ký người dùng
 app.post('/api/users/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -52,10 +53,14 @@ app.post('/api/users/register', async (req, res) => {
         return res.status(400).json({ error: 'Email đã được sử dụng' });
       }
       
-      // Thêm người dùng vào cơ sở dữ liệu không mã hóa mật khẩu
+      // Mã hóa mật khẩu
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      // Thêm người dùng vào cơ sở dữ liệu
       db.query(
         'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-        [username, email, password], // Lưu mật khẩu gốc không mã hóa
+        [username, email, hashedPassword],
         (err, result) => {
           if (err) {
             console.error('Error registering user:', err);
@@ -83,7 +88,7 @@ app.post('/api/users/register', async (req, res) => {
   }
 });
 
-// Đăng nhập (sử dụng mật khẩu gốc)
+// Đăng nhập
 app.post('/api/users/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -104,8 +109,9 @@ app.post('/api/users/login', async (req, res) => {
         
         const user = results[0];
         
-        // So sánh mật khẩu trực tiếp
-        if (password !== user.password) {
+        // So sánh mật khẩu
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
           return res.status(401).json({ error: 'Thông tin đăng nhập không chính xác' });
         }
         
@@ -204,7 +210,7 @@ app.get('/api/resources/:id', (req, res) => {
 // API blog posts
 app.get('/api/blog', (req, res) => {
   db.query(
-    'SELECT b.*, u.username FROM blogposts b LEFT JOIN users u ON b.user_id = u.user_id ORDER BY b.created_at DESC',
+    'SELECT b.*, u.username FROM blogposts b JOIN users u ON b.user_id = u.user_id ORDER BY b.created_at DESC',
     (err, results) => {
       if (err) {
         console.error('Error fetching blog posts:', err);
@@ -218,7 +224,7 @@ app.get('/api/blog', (req, res) => {
 app.get('/api/blog/:id', (req, res) => {
   const postId = req.params.id;
   db.query(
-    'SELECT b.*, u.username FROM blogposts b LEFT JOIN users u ON b.user_id = u.user_id WHERE b.post_id = ?',
+    'SELECT b.*, u.username FROM blogposts b JOIN users u ON b.user_id = u.user_id WHERE b.post_id = ?',
     [postId],
     (err, results) => {
       if (err) {
