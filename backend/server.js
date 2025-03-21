@@ -23,7 +23,7 @@ const db = mysql.createConnection({
   host: 'localhost', 
   user: 'root',      
   password: '',      
-  database: 'learningplatform'  // Tên database của bạn
+  database: 'learning_platform'  // Tên database của bạn
 });
 
 db.connect((err) => {
@@ -86,20 +86,17 @@ app.post('/api/users/register', async (req, res) => {
 // Đăng nhập (sử dụng mật khẩu gốc)
 app.post('/api/users/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    console.log('Login request:', { email, password });
+    const { username, password } = req.body;
     
-    // Tìm người dùng trong cơ sở dữ liệu bằng email hoặc email
+    // Tìm người dùng trong cơ sở dữ liệu
     db.query(
-      'SELECT * FROM users WHERE email = ? OR email = ?',
-      [email, email],
+      'SELECT * FROM users WHERE username = ?',
+      [username],
       async (err, results) => {
         if (err) {
           console.error('Error finding user:', err);
           return res.status(500).json({ error: 'Lỗi máy chủ' });
         }
-        
-        console.log('User search results:', results);
         
         if (results.length === 0) {
           return res.status(401).json({ error: 'Thông tin đăng nhập không chính xác' });
@@ -109,7 +106,6 @@ app.post('/api/users/login', async (req, res) => {
         
         // So sánh mật khẩu trực tiếp
         if (password !== user.password) {
-          console.log('Password mismatch. Expected:', user.password, 'Got:', password);
           return res.status(401).json({ error: 'Thông tin đăng nhập không chính xác' });
         }
         
@@ -124,7 +120,6 @@ app.post('/api/users/login', async (req, res) => {
           { expiresIn: '24h' }
         );
         
-        console.log('Login successful, token created');
         res.json({ token });
       }
     );
